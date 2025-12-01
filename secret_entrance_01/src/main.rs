@@ -12,11 +12,28 @@ fn main() -> Result<(), Box<dyn Error>> {
         let mut line = line.chars();
 
         let dir = line.next().ok_or("Could not parse line")?;
-        let magnitude: i32 = line.collect::<String>().parse()?;
+        let mut magnitude: i32 = line.collect::<String>().parse()?;
+
+        password += magnitude / 100;
+        magnitude %= 100;
+
+        if magnitude == 0 {
+            continue;
+        }
 
         match dir {
-            'R' => position += magnitude,
-            'L' => position -= magnitude,
+            'R' => {
+                position += magnitude;
+                if position >= 100 {
+                    password += 1;
+                }
+            }
+            'L' => {
+                if position != 0 && position - magnitude <= 0 {
+                    password += 1;
+                }
+                position -= magnitude;
+            }
             _ => return Err("Invalid direction".into()),
         }
 
@@ -24,10 +41,6 @@ fn main() -> Result<(), Box<dyn Error>> {
 
         while position < 0 {
             position += 100;
-        }
-
-        if position == 0 {
-            password += 1;
         }
     }
 

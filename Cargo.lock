@@ -3,5 +3,9 @@
 version = 4
 
 [[package]]
+name = "gift_shop_02"
+version = "0.1.0"
+
+[[package]]
 name = "secret_entrance_01"
 version = "0.1.0"

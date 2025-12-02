@@ -12,14 +12,23 @@ fn main() -> Result<(), Box<dyn Error>> {
                 digits += 1;
             }
 
-            if digits % 2 == 1 {
-                continue;
-            }
+            for repeating_len in 1..digits {
+                if digits % repeating_len != 0 {
+                    continue;
+                }
 
-            let pivot = 10u64.pow(digits / 2);
+                let base = 10u64.pow(repeating_len);
+                let mantissa = candidate % base;
+                let mut dividend = candidate;
 
-            if candidate % pivot == candidate / pivot {
-                sum += candidate;
+                while dividend > 0 && dividend % base == mantissa {
+                    dividend /= base;
+                }
+
+                if dividend == 0 {
+                    sum += candidate;
+                    break;
+                }
             }
         }
     }

@@ -1,4 +1,5 @@
 use std::{
+    collections::VecDeque,
     error::Error,
     fs::File,
     io::{self, BufRead},
@@ -18,41 +19,51 @@ fn main() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-fn largest_joltage(bank: &str) -> Result<u32, Box<dyn Error>> {
-    let mut largest = None;
-    let mut second_largest = None;
+fn largest_joltage(bank: &str) -> Result<u64, Box<dyn Error>> {
+    let size = 12;
+
+    let mut batteries: VecDeque<u64> = VecDeque::new();
 
     for num in bank
         .chars()
         .map(|c| c.to_digit(10).ok_or("Non-digit character encountered"))
         .rev()
     {
-        let num = num?;
-        match largest {
-            None => {
-                largest = Some(num);
+        let num = num? as u64;
+        if batteries.len() < size {
+            batteries.push_front(num);
+        } else if num >= batteries[0] {
+            let mut temp = VecDeque::new();
+            temp.push_back(num);
+
+            let mut prev = num;
+
+            while let Some(battery) = batteries.pop_front() {
+                if prev >= battery {
+                    temp.push_back(battery);
+                    prev = battery;
+                } else {
+                    batteries.push_front(battery);
+                    break;
+                }
             }
-            Some(largest_num) => match second_largest {
-                None => {
-                    second_largest = largest;
-                    largest = Some(num);
-                }
-                Some(second_largest_num) => {
-                    if num >= largest_num {
-                        if largest_num >= second_largest_num {
-                            second_largest = Some(largest_num);
-                        }
-                        largest = Some(num)
-                    }
-                }
-            },
+
+            temp.pop_back();
+
+            while let Some(battery) = temp.pop_back() {
+                batteries.push_front(battery);
+            }
         }
     }
 
-    match (largest, second_largest) {
-        (Some(largest), Some(second_largest)) => Ok(largest * 10 + second_largest),
-        _ => Err("Invalid input".into()),
+    let mut sum = 0;
+
+    for battery in batteries {
+        sum *= 10;
+        sum += battery;
     }
+
+    Ok(sum)
 }
 
 fn read_lines<T>(filepath: T) -> Result<io::Lines<io::BufReader<File>>, Box<dyn Error>>
@@ -71,11 +82,11 @@ mod tests {
     #[test]
     fn test_largest_joltage() {
         let data = [
-            ("182837571142", 88),
-            ("987654321111111", 98),
-            ("811111111111119", 89),
-            ("234234234234278", 78),
-            ("818181911112111", 92),
+            ("182837571142", 182837571142),
+            ("987654321111111", 987654321111),
+            ("811111111111119", 811111111119),
+            ("234234234234278", 434234234278),
+            ("818181911112111", 888911112111),
         ];
 
         for (str, joltage) in data {

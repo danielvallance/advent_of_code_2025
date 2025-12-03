@@ -7,9 +7,13 @@ use std::{
 
 fn main() -> Result<(), Box<dyn Error>> {
     let mut lines = read_lines("input.txt")?;
+
+    let mut sum = 0;
     while let Some(Ok(line)) = lines.next() {
-        println!("{line}");
+        sum += largest_joltage(&line)?;
     }
+
+    println!("The answer is {sum}");
 
     Ok(())
 }

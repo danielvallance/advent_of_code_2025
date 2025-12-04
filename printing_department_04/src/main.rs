@@ -1,4 +1,5 @@
 use std::{
+    collections::VecDeque,
     error::Error,
     fs::File,
     io::{self, BufRead, BufReader},
@@ -6,7 +7,7 @@ use std::{
 };
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let grid: Vec<Vec<i32>> = read_lines("input.txt")?
+    let mut grid: Vec<Vec<i32>> = read_lines("input.txt")?
         .map(|line| {
             let line = line?;
             Ok(line.chars().map(|c| if c == '@' { 1 } else { 0 }).collect())
@@ -26,6 +27,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         .collect();
 
     let mut answer = 0;
+    let mut q: VecDeque<(usize, usize)> = VecDeque::new();
 
     for row in 0..grid.len() {
         for col in 0..grid[0].len() {
@@ -46,6 +48,37 @@ fn main() -> Result<(), Box<dyn Error>> {
 
             if surrounding_rolls < 4 {
                 answer += 1;
+                grid[row][col] = 0;
+                for r in row.saturating_sub(1)..=(row + 1).min(grid.len() - 1) {
+                    for c in col.saturating_sub(1)..=(col + 1).min(grid[0].len() - 1) {
+                        q.push_back((r, c));
+                    }
+                }
+            }
+        }
+    }
+
+    while let Some((row, col)) = q.pop_front() {
+        if grid[row][col] != 1 {
+            continue;
+        }
+
+        let mut surrounding_rolls = -1;
+        for r in row.saturating_sub(1)..=(row + 1).min(grid.len() - 1) {
+            for c in col.saturating_sub(1)..=(col + 1).min(grid[0].len() - 1) {
+                if grid[r][c] == 1 {
+                    surrounding_rolls += 1;
+                }
+            }
+        }
+
+        if surrounding_rolls < 4 {
+            answer += 1;
+            grid[row][col] = 0;
+            for r in row.saturating_sub(1)..=(row + 1).min(grid.len() - 1) {
+                for c in col.saturating_sub(1)..=(col + 1).min(grid[0].len() - 1) {
+                    q.push_back((r, c));
+                }
             }
         }
     }

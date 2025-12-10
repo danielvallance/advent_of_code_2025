@@ -108,14 +108,9 @@ fn main() -> Result<(), Box<dyn Error>> {
         add_range(&mut fresh_ranges, start, end);
     }
 
-    let items = lines
-        .map(|line| Ok(line?.parse::<i64>()?))
-        .collect::<Result<Vec<i64>, Box<dyn Error>>>()?;
-
-    let answer = items
+    let answer = fresh_ranges
         .into_iter()
-        .filter(|&item| is_in_ranges(&fresh_ranges, item))
-        .count();
+        .fold(0, |acc, (start, end)| acc + end - start + 1);
 
     println!("The answer is {answer}");
 

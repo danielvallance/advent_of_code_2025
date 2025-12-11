@@ -11,6 +11,10 @@ name = "gift_shop_02"
 version = "0.1.0"
 
 [[package]]
+name = "laboratories_07"
+version = "0.1.0"
+
+[[package]]
 name = "lobby_03"
 version = "0.1.0"
 

@@ -1,6 +1,6 @@
 use std::{
     cmp::Reverse,
-    collections::{BinaryHeap, HashMap},
+    collections::BinaryHeap,
     error::Error,
     fs::File,
     io::{self, BufRead, BufReader, Lines},
@@ -11,6 +11,7 @@ use std::{
 enum MyError {
     InvalidFileFormat,
     ElementNotFound,
+    IncompleteGrid,
 }
 
 impl std::fmt::Display for MyError {
@@ -21,6 +22,9 @@ impl std::fmt::Display for MyError {
             }
             MyError::InvalidFileFormat => {
                 write!(f, "Invalid file format")
+            }
+            MyError::IncompleteGrid => {
+                write!(f, "Grid not complete")
             }
         }
     }
@@ -117,30 +121,26 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let mut disjoint_set = DisjointSet::new(points.len());
 
-    for _ in 0..1000 {
-        if let Some(Reverse((_, i, j))) = pq.pop() {
+    while let Some(Reverse((_, i, j))) = pq.pop() {
+        if disjoint_set.find(i).ok_or(MyError::ElementNotFound)?
+            != disjoint_set.find(j).ok_or(MyError::ElementNotFound)?
+        {
             disjoint_set.union(i, j).ok_or(MyError::ElementNotFound)?;
+
+            let rep = disjoint_set.find(0).ok_or(MyError::ElementNotFound)?;
+
+            if (1..points.len()).all(|idx| disjoint_set.find(idx) == Some(rep)) {
+                println!(
+                    "The answer is {}",
+                    points.get(i).ok_or(MyError::ElementNotFound)?.x
+                        * points.get(j).ok_or(MyError::ElementNotFound)?.x
+                );
+                return Ok(());
+            }
         }
     }
 
-    for i in 0..points.len() {
-        disjoint_set.find(i).ok_or(MyError::ElementNotFound)?;
-    }
-
-    let mut circuit_sizes: HashMap<usize, usize> = HashMap::new();
-
-    for p in disjoint_set.parent.iter() {
-        *circuit_sizes.entry(*p).or_insert(0) += 1;
-    }
-
-    let mut circuit_sizes = circuit_sizes.values().copied().collect::<Vec<usize>>();
-    circuit_sizes.sort();
-
-    let answer = circuit_sizes.iter().rev().take(3).product::<usize>();
-
-    println!("The answer is {answer}");
-
-    Ok(())
+    Err(MyError::IncompleteGrid.into())
 }
 
 fn read_lines<T>(filename: T) -> io::Result<Lines<BufReader<File>>>

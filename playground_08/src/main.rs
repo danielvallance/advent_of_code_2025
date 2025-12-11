@@ -1,4 +1,6 @@
 use std::{
+    cmp::Reverse,
+    collections::BinaryHeap,
     error::Error,
     fs::File,
     io::{self, BufRead, BufReader, Lines},
@@ -58,10 +60,14 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let mut distance_matrix = vec![vec![0; points.len()]; points.len()];
 
+    let mut pq = BinaryHeap::new();
+
     for i in 0..points.len() {
         for j in 0..points.len() {
             distance_matrix[i][j] = if i < j {
-                points[i].distance_squared(&points[j])
+                let distance = points[i].distance_squared(&points[j]);
+                pq.push(Reverse((distance, i, j)));
+                distance
             } else if j < i {
                 distance_matrix[j][i]
             } else {

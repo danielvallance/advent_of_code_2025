@@ -1,6 +1,6 @@
 use std::{
     cmp::Reverse,
-    collections::BinaryHeap,
+    collections::{BinaryHeap, HashMap},
     error::Error,
     fs::File,
     io::{self, BufRead, BufReader, Lines},
@@ -10,11 +10,19 @@ use std::{
 #[derive(Debug, PartialEq)]
 enum MyError {
     InvalidFileFormat,
+    ElementNotFound,
 }
 
 impl std::fmt::Display for MyError {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "Invalid file format")
+        match self {
+            MyError::ElementNotFound => {
+                write!(f, "Element not found")
+            }
+            MyError::InvalidFileFormat => {
+                write!(f, "Invalid file format")
+            }
+        }
     }
 }
 impl std::error::Error for MyError {}
@@ -27,7 +35,7 @@ struct Point {
 }
 
 impl Point {
-    fn new(x: u64, y: u64, z: u64) -> Point {
+    fn new(x: u64, y: u64, z: u64) -> Self {
         Point { x, y, z }
     }
 
@@ -36,6 +44,37 @@ impl Point {
         let dy = self.y.abs_diff(other.y);
         let dz = self.z.abs_diff(other.z);
         dx * dx + dy * dy + dz * dz
+    }
+}
+
+struct DisjointSet {
+    parent: Vec<usize>,
+}
+
+impl DisjointSet {
+    fn new(size: usize) -> Self {
+        DisjointSet {
+            parent: (0..size).collect(),
+        }
+    }
+
+    fn find(&mut self, element: usize) -> Option<usize> {
+        let cur = *self.parent.get(element)?;
+
+        if *self.parent.get(cur)? != cur {
+            let ans = self.find(cur)?;
+            *self.parent.get_mut(element)? = ans;
+            return Some(ans);
+        }
+
+        Some(cur)
+    }
+
+    fn union(&mut self, a: usize, b: usize) -> Option<usize> {
+        let a_rep = self.find(a)?;
+        let b_rep = self.find(b)?;
+        *self.parent.get_mut(b_rep)? = a_rep;
+        Some(a_rep)
     }
 }
 
@@ -75,6 +114,31 @@ fn main() -> Result<(), Box<dyn Error>> {
             }
         }
     }
+
+    let mut disjoint_set = DisjointSet::new(points.len());
+
+    for _ in 0..1000 {
+        if let Some(Reverse((_, i, j))) = pq.pop() {
+            disjoint_set.union(i, j).ok_or(MyError::ElementNotFound)?;
+        }
+    }
+
+    for i in 0..points.len() {
+        disjoint_set.find(i).ok_or(MyError::ElementNotFound)?;
+    }
+
+    let mut circuit_sizes: HashMap<usize, usize> = HashMap::new();
+
+    for p in disjoint_set.parent.iter() {
+        *circuit_sizes.entry(*p).or_insert(0) += 1;
+    }
+
+    let mut circuit_sizes = circuit_sizes.values().copied().collect::<Vec<usize>>();
+    circuit_sizes.sort();
+
+    let answer = circuit_sizes.iter().rev().take(3).product::<usize>();
+
+    println!("The answer is {answer}");
 
     Ok(())
 }

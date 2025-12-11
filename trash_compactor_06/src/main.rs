@@ -5,47 +5,81 @@ use std::{
     path::Path,
 };
 
-const INVALID_FILE_FORMAT: &str = "Invalid file format";
-
-enum OP {
-    ADD,
-    MUL,
+#[derive(Debug, PartialEq)]
+enum MyError {
+    InvalidFileFormat,
 }
 
-fn str_to_op(s: &str) -> Result<OP, Box<dyn Error>> {
+impl std::fmt::Display for MyError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "Invalid file format")
+    }
+}
+impl std::error::Error for MyError {}
+
+#[derive(PartialEq, Debug)]
+enum OP {
+    Add,
+    Mul,
+}
+
+fn str_to_op(s: &str) -> Result<OP, MyError> {
     match s {
-        "+" => Ok(OP::ADD),
-        "*" => Ok(OP::MUL),
-        _ => Err(INVALID_FILE_FORMAT.into()),
+        "+" => Ok(OP::Add),
+        "*" => Ok(OP::Mul),
+        _ => Err(MyError::InvalidFileFormat),
     }
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let mut elements = read_lines("input.txt")?
+    let mut lines: Vec<String> = read_lines("input.txt")?.collect::<Result<Vec<String>, _>>()?;
+
+    let operators: Vec<String> = lines
+        .pop()
         .map(|line| {
-            let line = line?;
-            Ok(line.split_whitespace().map(|s| s.to_owned()).collect())
+            line.split_whitespace()
+                .map(|s| s.to_owned())
+                .collect::<Vec<String>>()
         })
-        .collect::<Result<Vec<Vec<String>>, Box<dyn Error>>>()?;
+        .ok_or(MyError::InvalidFileFormat)?;
 
-    let operators = elements.pop().ok_or(INVALID_FILE_FORMAT)?;
+    let mut operand_slices: Vec<Vec<&[char]>> = vec![];
 
-    let operands = elements;
+    let operand_chars = lines
+        .into_iter()
+        .map(|line| line.chars().collect::<Vec<char>>())
+        .collect::<Vec<Vec<char>>>();
+
+    let mut start = 0;
+    for i in 0..operand_chars[0].len() {
+        if operand_chars.iter().all(|v| v[i].is_whitespace()) {
+            operand_slices.push(operand_chars.iter().map(|v| &v[start..i]).collect());
+            start = i + 1;
+        }
+    }
+
+    operand_slices.push(operand_chars.iter().map(|v| &v[start..]).collect());
 
     let mut answer = 0;
 
-    for idx in 0..operands[0].len() {
-        let op_str = operators.get(idx).ok_or(INVALID_FILE_FORMAT)?;
+    for (idx, operands) in operand_slices.iter().enumerate() {
+        let op_str = operators.get(idx).ok_or(MyError::InvalidFileFormat)?;
         let op = str_to_op(op_str)?;
 
-        let current_operands = operands
-            .iter()
-            .map(|operands| Ok(operands[idx].parse::<i64>()?))
-            .collect::<Result<Vec<i64>, Box<dyn Error>>>()?;
+        let mut current_operands: Vec<i64> = vec![];
+
+        for i in (0..operands[0].len()).rev() {
+            let current_operand = operands
+                .iter()
+                .map(|v| v[i])
+                .filter(|c| !c.is_whitespace())
+                .fold(0, |acc, x| (acc * 10) + x.to_digit(10).unwrap() as i64);
+            current_operands.push(current_operand);
+        }
 
         answer += match op {
-            OP::ADD => current_operands.iter().sum::<i64>(),
-            OP::MUL => current_operands.into_iter().product::<i64>(),
+            OP::Add => current_operands.iter().sum::<i64>(),
+            OP::Mul => current_operands.into_iter().product::<i64>(),
         }
     }
 
@@ -60,4 +94,25 @@ where
 {
     let file = File::open(filename)?;
     Ok(BufReader::new(file).lines())
+}
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+
+    #[test]
+    fn str_to_op_test() {
+        assert_eq!(str_to_op("+").unwrap(), OP::Add);
+        assert_eq!(str_to_op("*").unwrap(), OP::Mul);
+
+        let invalid_test_data = ["", "++", "**", "*+", "+*", "INVALID"];
+
+        for invalid_op_str in invalid_test_data {
+            assert_eq!(
+                str_to_op(invalid_op_str).unwrap_err(),
+                MyError::InvalidFileFormat
+            )
+        }
+    }
 }

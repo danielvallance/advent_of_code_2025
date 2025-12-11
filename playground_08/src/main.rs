@@ -19,14 +19,21 @@ impl std::error::Error for MyError {}
 
 #[derive(Debug)]
 struct Point {
-    x: u32,
-    y: u32,
-    z: u32,
+    x: u64,
+    y: u64,
+    z: u64,
 }
 
 impl Point {
-    fn new(x: u32, y: u32, z: u32) -> Point {
+    fn new(x: u64, y: u64, z: u64) -> Point {
         Point { x, y, z }
+    }
+
+    fn distance_squared(&self, other: &Point) -> u64 {
+        let dx = self.x.abs_diff(other.x);
+        let dy = self.y.abs_diff(other.y);
+        let dz = self.z.abs_diff(other.z);
+        dx * dx + dy * dy + dz * dz
     }
 }
 
@@ -38,8 +45,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         .map(|line| {
             let mut coords = line?
                 .split(',')
-                .map(|coord_str| Ok(coord_str.parse::<u32>()?))
-                .collect::<Result<Vec<u32>, Box<dyn Error>>>()?
+                .map(|coord_str| Ok(coord_str.parse::<u64>()?))
+                .collect::<Result<Vec<u64>, Box<dyn Error>>>()?
                 .into_iter();
             Ok(Point::new(
                 coords.next().ok_or(MyError::InvalidFileFormat)?,
@@ -49,7 +56,19 @@ fn main() -> Result<(), Box<dyn Error>> {
         })
         .collect::<Result<Vec<Point>, Box<dyn Error>>>()?;
 
-    println!("{points:?}");
+    let mut distance_matrix = vec![vec![0; points.len()]; points.len()];
+
+    for i in 0..points.len() {
+        for j in 0..points.len() {
+            distance_matrix[i][j] = if i < j {
+                points[i].distance_squared(&points[j])
+            } else if j < i {
+                distance_matrix[j][i]
+            } else {
+                0
+            }
+        }
+    }
 
     Ok(())
 }

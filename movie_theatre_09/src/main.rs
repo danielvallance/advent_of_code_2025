@@ -18,7 +18,7 @@ impl std::fmt::Display for MyError {
 
 impl Error for MyError {}
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Copy, Clone)]
 struct Point {
     x: u64,
     y: u64,
@@ -53,6 +53,12 @@ fn main() -> Result<(), Box<dyn Error>> {
             ))
         })
         .collect::<Result<Vec<Point>, Box<dyn Error>>>()?;
+
+    let edges = points
+        .iter()
+        .copied()
+        .zip(points.iter().copied().cycle().skip(1))
+        .collect::<Vec<(Point, Point)>>();
 
     let answer = points
         .iter()

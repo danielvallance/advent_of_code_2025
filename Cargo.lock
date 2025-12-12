@@ -7,6 +7,10 @@ name = "cafeteria_05"
 version = "0.1.0"
 
 [[package]]
+name = "factory_10"
+version = "0.1.0"
+
+[[package]]
 name = "gift_shop_02"
 version = "0.1.0"
 

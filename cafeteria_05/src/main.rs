@@ -55,7 +55,7 @@ fn add_range(ranges: &mut Vec<(i64, i64)>, start: i64, end: i64) {
     }
 }
 
-fn is_in_ranges(ranges: &[(i64, i64)], num: i64) -> bool {
+fn _is_in_ranges(ranges: &[(i64, i64)], num: i64) -> bool {
     let mut left = 0;
     let mut right = ranges.len() as i64 - 1;
 

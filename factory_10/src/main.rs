@@ -1,8 +1,9 @@
 use std::{
-    collections::VecDeque,
+    collections::{HashMap, VecDeque},
     error::Error,
     fs::File,
     io::{self, BufRead, BufReader, Lines},
+    num::ParseIntError,
     path::Path,
 };
 
@@ -19,7 +20,7 @@ impl std::fmt::Display for MyError {
 
 impl std::error::Error for MyError {}
 
-fn min_presses(target: u32, buttons: &[u32], lights: usize) -> Option<u32> {
+fn _min_presses(target: u32, buttons: &[u32], lights: usize) -> Option<u32> {
     let mut core_nos = vec![0u32; lights];
     let mut core_nos_masks = vec![0u32; lights];
 
@@ -90,24 +91,116 @@ fn parse_target(s: &str) -> (u32, usize) {
         })
 }
 
-fn parse_buttons(s: &[&str], lights: usize) -> Vec<u32> {
+fn parse_buttons(s: &[&str]) -> Result<Vec<Vec<i64>>, ParseIntError> {
     s.iter()
         .map(|button| {
             button
-                .chars()
-                .skip(1)
-                .take_while(|&c| c == ',' || c.is_ascii_digit())
-                .fold(0u32, |acc, c| {
-                    if let Some(digit) = c.to_digit(10) {
-                        acc | (1 << (lights as u32 - digit - 1))
-                    } else {
-                        acc
-                    }
-                })
+                .split(&[',', '(', ')'])
+                .filter(|&c| !c.is_empty())
+                .map(|button_val| button_val.parse::<i64>())
+                .collect::<Result<Vec<i64>, ParseIntError>>()
         })
-        .collect::<Vec<u32>>()
+        .collect::<Result<Vec<Vec<i64>>, ParseIntError>>()
 }
 
+fn parse_joltage(s: &str) -> Result<Vec<i64>, Box<dyn Error>> {
+    s.split(&[',', '{', '}'])
+        .filter(|&c| !c.is_empty())
+        .map(|s| Ok(s.parse::<i64>()?))
+        .collect()
+}
+
+fn min_joltage_presses(buttons: &[Vec<i64>], joltages: &[i64]) -> Option<u64> {
+    let mut binary_map: HashMap<u64, Vec<(u64, Vec<i64>)>> = HashMap::new();
+
+    for i in 0..(1 << buttons.len()) {
+        let mut current_joltage_vals = vec![0i64; joltages.len()];
+
+        let mut no_pressed = 0;
+
+        for (idx, joltages_affected) in buttons.iter().enumerate() {
+            if (i >> idx) & 1 == 1 {
+                no_pressed += 1;
+                for &joltage_affected in joltages_affected {
+                    current_joltage_vals[joltage_affected as usize] += 1;
+                }
+            }
+        }
+
+        let binary_joltage = current_joltage_vals
+            .iter()
+            .map(|x| (x % 2).unsigned_abs())
+            .fold(0, |acc, b| (acc << 1) + b);
+
+        binary_map
+            .entry(binary_joltage)
+            .or_default()
+            .push((no_pressed, current_joltage_vals));
+    }
+
+    struct Solver<'a> {
+        binary_map: &'a HashMap<u64, Vec<(u64, Vec<i64>)>>,
+        dp: HashMap<Vec<i64>, Option<u64>>,
+    }
+
+    impl<'a> Solver<'a> {
+        fn solve(&mut self, targets: Vec<i64>) -> Option<u64> {
+            if targets.iter().all(|&x| x == 0) {
+                return Some(0);
+            }
+
+            if let Some(&res) = self.dp.get(&targets) {
+                return res;
+            }
+
+            let current_binary_joltage = targets
+                .iter()
+                .map(|x| (x % 2).unsigned_abs())
+                .fold(0, |acc, b| (acc << 1) + b);
+
+            let candidates = match self.binary_map.get(&current_binary_joltage) {
+                Some(c) => c,
+                None => {
+                    self.dp.insert(targets, None);
+                    return None;
+                }
+            };
+
+            let mut min_pressed = None;
+
+            for (cost, joltage_diffs) in candidates {
+                let mut next_targets = vec![];
+                let mut solvable = true;
+
+                for (target, joltage_diff) in targets.iter().zip(joltage_diffs) {
+                    let remaining = target - joltage_diff;
+                    if remaining < 0 {
+                        solvable = false;
+                        break;
+                    }
+                    next_targets.push(remaining / 2);
+                }
+
+                if solvable {
+                    if let Some(sub_result) = self.solve(next_targets) {
+                        let total = cost + 2 * sub_result;
+                        min_pressed = Some(min_pressed.map_or(total, |m: u64| m.min(total)));
+                    }
+                }
+            }
+
+            self.dp.insert(targets, min_pressed);
+            min_pressed
+        }
+    }
+
+    let mut solver = Solver {
+        binary_map: &binary_map,
+        dp: HashMap::new(),
+    };
+
+    solver.solve(joltages.to_vec())
+}
 fn main() -> Result<(), Box<dyn Error>> {
     let lines = read_lines("input.txt")?;
 
@@ -118,15 +211,16 @@ fn main() -> Result<(), Box<dyn Error>> {
             let mut portions = line.split_whitespace().collect::<VecDeque<&str>>();
             let (target, lights) =
                 parse_target(portions.pop_front().ok_or(MyError::InvalidFileFormat)?);
-            let joltage_str = String::from(portions.pop_back().ok_or(MyError::InvalidFileFormat)?);
-            let buttons = parse_buttons(&portions.into_iter().collect::<Vec<&str>>(), lights);
+            let joltage_str =
+                parse_joltage(portions.pop_back().ok_or(MyError::InvalidFileFormat)?)?;
+            let buttons = parse_buttons(&portions.into_iter().collect::<Vec<&str>>())?;
             Ok((target, buttons, joltage_str, lights))
         })
-        .collect::<Result<Vec<(u32, Vec<u32>, String, usize)>, Box<dyn Error>>>()?;
+        .collect::<Result<Vec<(u32, Vec<Vec<i64>>, Vec<i64>, usize)>, Box<dyn Error>>>()?;
 
     let mut answer = 0;
-    for (target, buttons, _, lights) in machine_defs {
-        if let Some(min_buttons) = min_presses(target, &buttons, lights) {
+    for (_, buttons, joltages, _) in machine_defs {
+        if let Some(min_buttons) = min_joltage_presses(&buttons, &joltages) {
             answer += min_buttons;
         } else {
             return Err(MyError::InvalidFileFormat.into());
